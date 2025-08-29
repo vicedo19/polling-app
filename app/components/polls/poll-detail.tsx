@@ -1,31 +1,45 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Poll } from '@/app/lib/polls/types'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { voteOnPoll } from '@/lib/polls/supabase'
+import { useAuth } from '@/lib/auth/auth-context'
 
 type PollDetailProps = {
   poll: Poll
+  onVoteUpdate?: () => void
 }
 
-export function PollDetail({ poll }: PollDetailProps) {
+export function PollDetail({ poll, onVoteUpdate }: PollDetailProps) {
+  const { user } = useAuth()
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [hasVoted, setHasVoted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
   
   const totalVotes = poll.options.reduce((sum, option) => sum + option.votes, 0)
   
-  const handleVote = () => {
-    if (!selectedOption || !poll.isActive) return
+  const handleVote = async () => {
+    if (!selectedOption || !poll.isActive || !user) return
     
     setIsSubmitting(true)
+    setError('')
     
-    // Simulate API call to submit vote
-    setTimeout(() => {
-      setHasVoted(true)
+    try {
+      const result = await voteOnPoll(poll.id, selectedOption)
+      if (result.success) {
+        setHasVoted(true)
+        onVoteUpdate?.()
+      } else {
+        setError(result.error || 'Failed to submit vote')
+      }
+    } catch (err) {
+      setError('An unexpected error occurred')
+    } finally {
       setIsSubmitting(false)
-    }, 500)
+    }
   }
   
   const formatDate = (dateString: string) => {
@@ -98,14 +112,25 @@ export function PollDetail({ poll }: PollDetailProps) {
       </CardContent>
       
       {!hasVoted && poll.isActive && (
-        <CardFooter>
-          <Button 
-            onClick={handleVote} 
-            disabled={!selectedOption || isSubmitting} 
-            className="w-full"
-          >
-            {isSubmitting ? 'Submitting...' : 'Submit Vote'}
-          </Button>
+        <CardFooter className="flex flex-col gap-2">
+          {error && (
+            <div className="p-2 text-red-600 bg-red-50 border border-red-200 rounded text-sm">
+              {error}
+            </div>
+          )}
+          {!user ? (
+            <div className="p-2 text-amber-600 bg-amber-50 border border-amber-200 rounded text-sm">
+              Please sign in to vote on this poll.
+            </div>
+          ) : (
+            <Button 
+              onClick={handleVote} 
+              disabled={!selectedOption || isSubmitting || !user} 
+              className="w-full"
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Vote'}
+            </Button>
+          )}
         </CardFooter>
       )}
     </Card>

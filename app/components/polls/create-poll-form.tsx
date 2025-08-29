@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { createPoll } from '@/lib/polls/supabase'
+import { useAuth } from '@/lib/auth/auth-context'
 
 type PollOption = {
   id: string
@@ -21,7 +23,9 @@ export function CreatePollForm() {
   ])
   const [expiryDate, setExpiryDate] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
   const router = useRouter()
+  const { user } = useAuth()
 
   const handleAddOption = () => {
     setOptions([...options, { id: `${options.length + 1}`, text: '' }])
@@ -42,26 +46,41 @@ export function CreatePollForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
     
     // Validate form
-    if (!question.trim()) return
-    if (options.some(option => !option.text.trim())) return
+    if (!question.trim()) {
+      setError('Please enter a question')
+      return
+    }
+    if (options.some(option => !option.text.trim())) {
+      setError('Please fill in all options')
+      return
+    }
+    if (!user) {
+      setError('You must be logged in to create a poll')
+      return
+    }
     
     setIsSubmitting(true)
     
-    // This is a placeholder for actual API call
-    // In a real app, you would send the data to your backend
-    console.log('Creating poll:', {
-      question,
-      options,
-      expiryDate: expiryDate || undefined
-    })
-    
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const result = await createPoll({
+        question: question.trim(),
+        options: options.map(option => option.text.trim()),
+        expiresAt: expiryDate || undefined
+      })
+      
+      if (result.success) {
+        router.push('/polls?created=1')
+      } else {
+        setError(result.error || 'Failed to create poll')
+      }
+    } catch (err) {
+      setError('An unexpected error occurred')
+    } finally {
       setIsSubmitting(false)
-      router.push('/polls')
-    }, 1000)
+    }
   }
 
   return (
@@ -72,6 +91,11 @@ export function CreatePollForm() {
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
+          {error && (
+            <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+              {error}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="question">Question</Label>
             <Textarea
@@ -129,7 +153,7 @@ export function CreatePollForm() {
           </div>
         </CardContent>
         <CardFooter>
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button type="submit" className="w-full mt-4" disabled={isSubmitting}>
             {isSubmitting ? 'Creating Poll...' : 'Create Poll'}
           </Button>
         </CardFooter>

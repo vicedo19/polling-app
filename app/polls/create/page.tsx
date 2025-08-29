@@ -5,13 +5,12 @@ import Link from 'next/link'
 export default function CreatePollPage() {
   return (
     <div className="container py-8 space-y-6">
-      <div className="flex items-center">
+      <div className="max-w-2xl mx-auto text-blue-500">
         <Link href="/polls">
-          <Button variant="ghost" className="mr-4">
+          <Button variant="ghost">
             ← Back to Polls
           </Button>
         </Link>
-        <h1 className="text-2xl font-bold">Create Poll</h1>
       </div>
       
       <CreatePollForm />
