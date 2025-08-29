@@ -1,6 +1,0 @@
-{
-  "/favicon.ico/route": "app/favicon.ico/route.js",
-  "/polls/[id]/page": "app/polls/[id]/page.js",
-  "/polls/create/page": "app/polls/create/page.js",
-  "/polls/page": "app/polls/page.js"
-}
