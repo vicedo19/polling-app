@@ -19,7 +19,24 @@ export function PollDetail({ poll, onVoteUpdate }: PollDetailProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   
-  const totalVotes = poll.options.reduce((sum, option) => sum + option.votes, 0)
+  // Local votes state for optimistic UI updates
+  const [votesByOption, setVotesByOption] = useState<Record<string, number>>(() =>
+    poll.options.reduce((acc, option) => {
+      acc[option.id] = option.votes
+      return acc
+    }, {} as Record<string, number>)
+  )
+
+  // Keep local votes in sync when poll data refreshes
+  useEffect(() => {
+    const next = poll.options.reduce((acc, option) => {
+      acc[option.id] = option.votes
+      return acc
+    }, {} as Record<string, number>)
+    setVotesByOption(next)
+  }, [poll])
+  
+  const totalVotes = Object.values(votesByOption).reduce((sum, n) => sum + n, 0)
   
   const handleVote = async () => {
     if (!selectedOption || !poll.isActive || !user) return
@@ -30,6 +47,11 @@ export function PollDetail({ poll, onVoteUpdate }: PollDetailProps) {
     try {
       const result = await voteOnPoll(poll.id, selectedOption)
       if (result.success) {
+        // Optimistically update vote count for the selected option
+        setVotesByOption(prev => ({
+          ...prev,
+          [selectedOption]: (prev[selectedOption] || 0) + 1,
+        }))
         setHasVoted(true)
         onVoteUpdate?.()
       } else {
@@ -59,7 +81,8 @@ export function PollDetail({ poll, onVoteUpdate }: PollDetailProps) {
       <CardContent>
         <div className="space-y-4">
           {poll.options.map((option) => {
-            const percentage = totalVotes > 0 ? Math.round((option.votes / totalVotes) * 100) : 0
+            const optionVotes = votesByOption[option.id] || 0
+            const percentage = totalVotes > 0 ? Math.round((optionVotes / totalVotes) * 100) : 0
             
             return (
               <div key={option.id} className="space-y-2">
@@ -83,7 +106,7 @@ export function PollDetail({ poll, onVoteUpdate }: PollDetailProps) {
                   </label>
                   {hasVoted && (
                     <span className="text-sm font-medium">
-                      {option.votes} votes ({percentage}%)
+                      {optionVotes} votes ({percentage}%)
                     </span>
                   )}
                 </div>
