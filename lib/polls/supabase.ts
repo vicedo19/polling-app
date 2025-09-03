@@ -100,18 +100,41 @@ export async function getPolls(): Promise<{ success: boolean; polls?: Poll[]; er
       return { success: false, error: 'Failed to fetch polls' }
     }
 
-    const polls: Poll[] = pollsData.map((poll: DatabasePoll & { poll_options: DatabasePollOption[] }) => ({
+    // Collect all option IDs to fetch their vote counts in one query
+    const allOptionIds: string[] = (pollsData as Array<DatabasePoll & { poll_options: DatabasePollOption[] }>)
+      .flatMap((poll) => (poll.poll_options || []).map((opt) => opt.id))
+
+    // Build vote counts map: option_id -> count
+    let voteCounts: Record<string, number> = {}
+    if (allOptionIds.length > 0) {
+      const { data: votesData, error: votesError } = await supabase
+        .from('votes')
+        .select('option_id')
+        .in('option_id', allOptionIds)
+
+      if (!votesError && votesData) {
+        voteCounts = votesData.reduce((acc: Record<string, number>, v: { option_id: string }) => {
+          acc[v.option_id] = (acc[v.option_id] || 0) + 1
+          return acc
+        }, {})
+      } else if (votesError) {
+        console.error('Error fetching votes for polls:', votesError)
+        // We can proceed with zeroed counts if vote fetch fails
+      }
+    }
+
+    const polls: Poll[] = (pollsData as Array<DatabasePoll & { poll_options: DatabasePollOption[] }>).map((poll) => ({
       id: poll.id,
       question: poll.question,
-      options: poll.poll_options.map(option => ({
+      options: (poll.poll_options || []).map((option) => ({
         id: option.id,
         text: option.option_text,
-        votes: 0 // We'll need to calculate this from votes table
+        votes: voteCounts[option.id] ?? 0,
       })),
       createdBy: poll.created_by || 'Unknown',
       createdAt: poll.created_at,
       expiresAt: poll.expires_at,
-      isActive: poll.is_active
+      isActive: poll.is_active,
     }))
 
     return { success: true, polls }
