@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Poll } from '@/app/lib/polls/types'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 
 type PollListProps = {
   polls: Poll[]
@@ -17,7 +18,6 @@ export function PollList({ polls }: PollListProps) {
     if (sortBy === 'newest') {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     } else {
-      // Sort by total votes
       const totalVotesA = a.options.reduce((sum, option) => sum + option.votes, 0)
       const totalVotesB = b.options.reduce((sum, option) => sum + option.votes, 0)
       return totalVotesB - totalVotesA
@@ -26,6 +26,21 @@ export function PollList({ polls }: PollListProps) {
 
   return (
     <div className="space-y-6">
+      <div className="flex gap-4 mb-4">
+        <Button
+          variant={sortBy === 'newest' ? 'default' : 'outline'}
+          onClick={() => setSortBy('newest')}
+        >
+          Newest
+        </Button>
+        <Button
+          variant={sortBy === 'popular' ? 'default' : 'outline'}
+          onClick={() => setSortBy('popular')}
+        >
+          Most Voted
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {sortedPolls.map((poll) => {
           const createdDate = new Date(poll.createdAt)
